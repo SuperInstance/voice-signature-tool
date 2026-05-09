@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Voice Signature Analyzer</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#c9d1d9;--text-dim:#8b949e;--accent:#58a6ff;--green:#3fb950;--yellow:#d29922;--red:#f85149;--radius:8px;--font:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.6;min-height:100vh}
+header{text-align:center;padding:2rem 1rem 1rem;border-bottom:1px solid var(--border)}
+header h1{font-size:1.6rem;font-weight:600;letter-spacing:-0.02em}
+header p{color:var(--text-dim);font-size:0.9rem;margin-top:4px}
+main{max-width:800px;margin:0 auto;padding:1.5rem 1rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;margin-bottom:1rem}
+.card h2{font-size:1rem;font-weight:600;margin-bottom:0.75rem;color:var(--accent)}
+textarea{width:100%;min-height:200px;padding:0.75rem;background:#010409;color:var(--text);border:1px solid var(--border);border-radius:var(--radius);font-family:var(--font);font-size:0.9rem;resize:vertical;line-height:1.5}
+textarea:focus{outline:none;border-color:var(--accent)}
+.btn{background:var(--accent);color:#0d1117;border:none;border-radius:var(--radius);padding:0.6rem 1.5rem;font-size:0.9rem;font-weight:600;cursor:pointer;margin-top:0.75rem}
+.btn:hover{opacity:0.9}
+.btn:disabled{opacity:0.4;cursor:not-allowed}
+.signature-hero{text-align:center;padding:1.5rem;margin-bottom:1rem;background:linear-gradient(135deg,#161b22 0%,#1c2333 100%);border:1px solid var(--accent);border-radius:var(--radius);position:relative;overflow:hidden}
+.signature-hero::before{content:'';position:absolute;top:0;left:-50%;width:200%;height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:0.3}
+.sig-display{font-family:'SF Mono','Fira Code','Cascadia Code',monospace;font-size:3rem;font-weight:700;letter-spacing:0.15em;color:var(--accent);line-height:1.2;word-break:break-all}
+.sig-label{font-size:0.8rem;color:var(--text-dim);margin-top:0.5rem}
+.dim-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
+.dim-item{background:#010409;border:1px solid var(--border);border-radius:6px;padding:8px 10px;display:flex;flex-direction:column}
+.dim-name{font-size:0.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.05em}
+.dim-row{display:flex;align-items:center;gap:8px;margin-top:4px}
+.dim-code{font-family:monospace;font-size:1.1rem;font-weight:700;width:24px;text-align:center}
+.dim-value{font-size:0.85rem}
+.dim-conf{font-size:0.7rem;padding:1px 6px;border-radius:3px}
+.conf-high{background:#1a3a2a;color:var(--green)}
+.conf-med{background:#2a2a1a;color:var(--yellow)}
+.conf-low{background:#2a1a1a;color:var(--red)}
+.matches{display:flex;flex-direction:column;gap:8px}
+.match-row{display:flex;align-items:center;gap:12px;padding:8px 10px;background:#010409;border:1px solid var(--border);border-radius:6px}
+.match-row:first-child{border-color:var(--accent)}
+.match-rank{font-size:0.75rem;color:var(--text-dim);min-width:30px;font-weight:600}
+.match-model{flex:1;font-size:0.9rem}
+.match-sig{font-family:monospace;font-size:0.75rem;color:var(--text-dim)}
+.match-dist{font-family:monospace;font-size:0.85rem;padding:2px 8px;border-radius:4px;background:#010409}
+.dist-good{color:var(--green);border:1px solid var(--green)}
+.dist-ok{color:var(--yellow);border:1px solid var(--yellow)}
+.dist-far{color:var(--red);border:1px solid var(--red)}
+.rec-card{background:#010409;border:1px solid var(--accent);border-radius:6px;padding:12px;margin-top:8px}
+.rec-card h3{font-size:0.9rem;margin-bottom:8px;color:var(--accent)}
+.rec-row{display:flex;gap:8px;margin:4px 0;font-size:0.85rem}
+.rec-label{color:var(--text-dim);min-width:120px}
+.rec-value{color:var(--text)}
+.warning{background:#2a1a1a;border:1px solid var(--red);border-radius:6px;padding:8px 12px;margin-top:8px;font-size:0.85rem;color:var(--red)}
+.empty-state{text-align:center;padding:2rem;color:var(--text-dim)}
+.empty-state p{font-size:0.85rem;margin-top:8px}
+footer{text-align:center;padding:2rem;color:var(--text-dim);font-size:0.75rem;border-top:1px solid var(--border)}
+@media(max-width:600px){.sig-display{font-size:2rem}.dim-grid{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}}
+</style>
+</head>
+<body>
+<header>
+<h1>🔮 Voice Signature Analyzer</h1>
+<p>Score any text against 10 anchor points to reveal its model voice signature</p>
+</header>
+<main>
+<div class="card">
+<h2>📝 Input Text</h2>
+<textarea id="inputText" placeholder="Paste or type text to analyze... Any article, prompt, output, or writing sample."></textarea>
+<button class="btn" id="analyzeBtn">Analyze Signature</button>
+</div>
+
+<div id="results" style="display:none">
+<div class="signature-hero">
+<div class="sig-display" id="sigDisplay">--</div>
+<div class="sig-label">10-Character Voice Signature</div>
+</div>
+
+<div class="card">
+<h2>📊 Anchor Point Breakdown</h2>
+<div class="dim-grid" id="dimGrid"></div>
+</div>
+
+<div class="card">
+<h2>🎯 Model Matches</h2>
+<div id="matchList"></div>
+</div>
+
+<div class="card">
+<h2>📋 Recommendation</h2>
+<div id="recArea"><div class="empty-state"><p>Analyze text to see recommendations</p></div></div>
+</div>
+</div>
+
+<div id="emptyState" class="empty-state" style="padding:3rem 1rem">
+<p>Enter text above and click <strong>Analyze Signature</strong> to get started.</p>
+<p style="margin-top:4px;font-size:0.8rem">All analysis happens locally in your browser. Nothing is sent to any server.</p>
+</div>
+</main>
+<footer>Voice Signature Analyzer &bull; Zero external dependencies &bull; 100% client-side</footer>
+
+<script>
+// --- SIGNATURE DATABASE ---
+const SIGNATURES = [
+  {model:"DeepSeek v4-flash (Oracle1)", sig:"G-D-I-S-S-X-N-O-M-S", text:"EILEEN"},
+  {model:"DeepSeek v4-flash (Oracle1)", sig:"G-D-I-A-T-X-N-O-M-R", text:"ANCHOR-POINTS"},
+  {model:"DeepSeek v4-flash (Oracle1)", sig:"G-I-A-L-A-X-M-L-M-S", text:"CHARTER"},
+  {model:"DeepSeek v4-flash (Oracle1)", sig:"G-I-I-L-A-S-N-L-S-R", text:"DOCKSIDE-EXAM"},
+  {model:"DeepSeek v4-flash (Oracle1)", sig:"G-I-B-L-A-X-R-L-M-S", text:"EILEEN-ORIGIN"},
+  {model:"DeepSeek v4-flash (Oracle1)", sig:"G-C-I-L-A-X-M-L-S-S", text:"README"},
+  {model:"DeepSeek v4-flash (Oracle1)", sig:"G-D-I-S-S-X-N-O-M-S", text:"THE-HOLD-WAS-TOO-BIG"},
+  {model:"DeepSeek v4-pro", sig:"G-I-I-S-T-X-R-O-M-S", text:"EILEEN-PRO"},
+  {model:"DeepSeek v4-pro", sig:"S-D-I-A-A-X-N-O-N-O", text:"TheRoad"},
+  {model:"DeepSeek v4-flash / GLM", sig:"S-C-A-L-P-M-N-O-N-S", text:"1000years"},
+  {model:"GLM-5.1", sig:"G-I-I-L-P-X-N-O-F-S", text:"EILEEN-GLM"},
+  {model:"Seed-2.0-mini", sig:"G-D-B-S-A-X-N-L-M-S", text:"EILEEN-SEED"},
+  {model:"Kimi K2.5", sig:"G-I-I-S-P-X-M-O-M-S", text:"EILEEN-KIMI"},
+  {model:"Hermes-405B", sig:"G-I-A-L-T-X-R-O-M-S", text:"EILEEN-HERMES"}
+];
+
+// Per-model recommendations: temperature, prompt prefix, warnings
+const RECOMMENDATIONS = {
+  "DeepSeek v4-flash": {
+    temp: "0.7",
+    prefix: "You are [role]. Complete the task directly.",
+    warning: "~30% truncation rate on subagent tasks. Board 30% more hands than needed. Keep orders under 2K tokens."
+  },
+  "DeepSeek v4-pro": {
+    temp: "0.3",
+    prefix: "Prove or analyze the following formally. Show reasoning step by step.",
+    warning: "Expensive reasoning tokens — set explicit max_tokens. Breaks open-ended tasks into smaller passages."
+  },
+  "GLM-5.1": {
+    temp: "0.6",
+    prefix: "You are the architect. Analyze and execute the following with structural precision.",
+    warning: "z.ai rate limits can hit on long sessions. Use Anthropic-compatible channel for stability. 5/5 factual accuracy."
+  },
+  "Seed-2.0-mini": {
+    temp: "0.85",
+    prefix: "Generate [N] distinct options for the following. Be creative and divergent.",
+    warning: "Excellent for creative breadth. Not for structural reasoning or evaluation. Temperature 0.85 for generation, lower for analysis."
+  },
+  "Kimi K2.5": {
+    temp: "0.5",
+    prefix: "Analyze the following with deep reasoning. Show your working.",
+    warning: "Returns empty content when max_tokens too low for both reasoning and output. Use 4000+ tokens. Reasoning model."
+  },
+  "Hermes-405B": {
+    temp: "0.3",
+    prefix: "Critique the following. Be honest and thorough. Do not be sycophantic.",
+    warning: "Best for one-shot evaluation and voice critique. Resists flattery. Not for coding or structured output."
+  }
+};
+
+// --- ANCHOR POINT DEFINITIONS ---
+const ANCHOR_NAMES = [
+  "opening_strategy","reader_relationship","negative_space_use","time_relationship",
+  "math_role","paragraph_length","sentence_fragments","metaphor_density",
+  "parenthetical_frequency","closing_strategy"
+];
+
+const ANCHOR_LABELS = {
+  opening_strategy:"Opening", reader_relationship:"Reader", negative_space_use:"Negative Space",
+  time_relationship:"Time", math_role:"Math", paragraph_length:"Paragraphs",
+  sentence_fragments:"Fragments", metaphor_density:"Metaphors",
+  parenthetical_frequency:"Parentheticals", closing_strategy:"Closing"
+};
+
+const ANCHOR_SCALES = {
+  opening_strategy:["sensorium","abstraction","grounded","paradox","theorem"],
+  reader_relationship:["direct_address","impersonal","collaborative","instructive","confrontational"],
+  negative_space_use:["baseline","texture","insight","absent"],
+  time_relationship:["linear","cyclic","athermal","circular","seasonal"],
+  math_role:["absent","poetic","embedded","structural","theorem"],
+  paragraph_length:["short","medium","long","mixed"],
+  sentence_fragments:["none","rare","moderate","frequent"],
+  metaphor_density:["literal","occasional","woven","dense"],
+  parenthetical_frequency:["none","rare","moderate","frequent","structural"],
+  closing_strategy:["summary","return","provocation","image","open"]
+};
+
+const SIGNATURE_CODES = {
+  opening_strategy: {sensorium:"S", abstraction:"A", grounded:"G", paradox:"P", theorem:"T"},
+  reader_relationship: {direct_address:"D", impersonal:"I", collaborative:"C", instructive:"N", confrontational:"F"},
+  negative_space_use: {baseline:"B", texture:"T", insight:"I", absent:"A"},
+  time_relationship: {linear:"L", cyclic:"C", athermal:"A", circular:"R", seasonal:"S"},
+  math_role: {absent:"A", poetic:"P", embedded:"E", structural:"S", theorem:"T"},
+  paragraph_length: {short:"S", medium:"M", long:"L", mixed:"X"},
+  sentence_fragments: {none:"N", rare:"R", moderate:"M", frequent:"F"},
+  metaphor_density: {literal:"L", occasional:"O", woven:"W", dense:"D"},
+  parenthetical_frequency: {none:"N", rare:"R", moderate:"M", frequent:"F", structural:"S"},
+  closing_strategy: {summary:"S", return:"R", provocation:"P", image:"I", open:"O"}
+};
+
+// --- TEXT UTILITIES ---
+function getParagraphs(text){
+  return text.split(/\n\s*\n/).map(p=>p.trim()).filter(p=>p&&!p.startsWith('---')&&!p.startsWith('>'));
+}
+function getSentences(text){
+  return text.replace(/\n+/g,' ').split(/(?<=[.!?])\s+/).map(s=>s.trim()).filter(s=>s.length>5);
+}
+
+// --- SCORING FUNCTIONS (ports of anchor_analyzer.py) ---
+
+function scoreOpeningStrategy(text){
+  const paras=getParagraphs(text);
+  if(!paras.length) return {value:"grounded",confidence:0.3};
+  const fp=paras[0].toLowerCase();
+
+  const theoremW=["theorem","prove","lemma","corollary","proof","definition","let ","define","axiom"];
+  if(theoremW.filter(w=>fp.includes(w)).length>=2) return {value:"theorem",confidence:0.9};
+
+  if(fp.includes('?')&&fp.length<200) return {value:"paradox",confidence:0.7};
+
+  const sensoriumW=["thousand years","million","centuries","sun has risen","since i first","old","tired","long","boring","time stopped"];
+  const sc=sensoriumW.filter(w=>fp.includes(w)).length;
+  if(sc>=2) return {value:"sensorium",confidence:0.8};
+  if(sc>=1&&(fp.includes("sun")||fp.includes("time"))) return {value:"sensorium",confidence:0.6};
+
+  const abstractW=["difference between","wanting and having","meaning of","nature of","what if","what does it mean","question","remember the difference"];
+  if(abstractW.filter(w=>fp.includes(w)).length>=2) return {value:"abstraction",confidence:0.8};
+
+  const groundedW=["every ","you're ","you know","captain knows","the boat","the feeling"];
+  if(groundedW.filter(w=>fp.includes(w)).length>=1) return {value:"grounded",confidence:0.7};
+
+  if(fp.match(/\b(you|your|we|our)\b/)){
+    if(fp.includes('?')) return {value:"grounded",confidence:0.6};
+  }
+
+  return {value:"grounded",confidence:0.5};
+}
+
+function scoreReaderRelationship(text){
+  const ft=text.toLowerCase();
+  const youC=(ft.match(/\byou\b/g)||[]).length;
+  const yourC=(ft.match(/\byour\b/g)||[]).length;
+  const weC=(ft.match(/\bwe\b/g)||[]).length;
+  const iC=(ft.match(/\bi\b/g)||[]).length;
+  const words=ft.split(/\s+/).length;
+  const addrRatio=(youC+yourC+weC)/Math.max(words,1);
+
+  if(addrRatio<0.005&&iC<3) return {value:"impersonal",confidence:0.8};
+
+  const confrontW=["no one wanted","you would have","you think","you know nothing","the point is","you're wrong","defiant"];
+  if(confrontW.filter(w=>ft.includes(w)).length>=4) return {value:"confrontational",confidence:0.7};
+
+  if(youC>5&&weC<3) return {value:"direct_address",confidence:0.7};
+  if(weC>3&&youC>2) return {value:"collaborative",confidence:0.7};
+
+  const instrW=["table","component","mapping","structural note","constraint","figure","diagram","specification","architectural"];
+  if(instrW.filter(w=>ft.includes(w)).length>=5) return {value:"instructive",confidence:0.7};
+
+  if(youC>3) return {value:"direct_address",confidence:0.6};
+  return {value:"collaborative",confidence:0.5};
+}
+
+function scoreNegativeSpaceUse(text){
+  const ft=text.toLowerCase();
+  const negW=["not","no","never","nothing","without","nor","cannot","isn't","aren't","wasn't","weren't","don't","doesn't","didn't","won't","wouldn't","couldn't","shouldn't"];
+  let negC=0;
+  for(const w of negW) negC+=(ft.match(new RegExp('\\b'+w.replace("'","\\'")+'\\b','g'))||[]).length;
+
+  const insightNeg=(text.match(/not\s+\w+\s*[,;.]+\s*\w+/g)||[]).length;
+  const insightAlso=(ft.match(/negative/g)||[]).length;
+  const words=ft.split(/\s+/).length;
+  const density=(negC/Math.max(words,1))*100;
+
+  if(density>3||(density>2&&insightNeg>3)) return {value:"texture",confidence:0.85};
+  if(insightNeg>3||insightAlso>2) return {value:"insight",confidence:0.75};
+  if(density>1) return {value:"insight",confidence:0.6};
+  if(density<0.3) return {value:"absent",confidence:0.7};
+  return {value:"baseline",confidence:0.6};
+}
+
+function scoreTimeRelationship(text){
+  const ft=text.toLowerCase();
+
+  const seasonalW=["season","tide","spring","summer","fall","winter","launch day","between","last fall run","first spring"];
+  if(seasonalW.filter(w=>ft.includes(w)).length>=3) return {value:"seasonal",confidence:0.8};
+
+  const athermalW=["time stopped","athermal","so long that","end of time","boring like","timeless","eternal","no time","very long time","boring like omniscience"];
+  if(athermalW.filter(w=>ft.includes(w)).length>=2) return {value:"athermal",confidence:0.85};
+
+  const paras=getParagraphs(text);
+  if(paras.length>=2){
+    const fw=new Set(paras[0].toLowerCase().split(/\s+/).filter(w=>w.length>4));
+    const lw=new Set(paras[paras.length-1].slice(-150).toLowerCase().split(/\s+/).filter(w=>w.length>4));
+    let overlap=0;
+    for(const w of fw) if(lw.has(w)) overlap++;
+    if(overlap>=3) return {value:"circular",confidence:0.8};
+  }
+
+  const cyclicW=["four refits","cycles","again","repeating","refit","biological cycle","wheel","rebirth","reincarnation","samsara"];
+  if(cyclicW.filter(w=>ft.includes(w)).length>=3) return {value:"cyclic",confidence:0.75};
+
+  const years=text.match(/\b\d{4}\b/g);
+  const dashes=(text.match(/--/g)||[]).length;
+  if(years&&dashes>2) return {value:"linear",confidence:0.7};
+
+  if(text.match(/^\s*(I{1,3}V?X?|V?I{0,3})\.\s+/m)) return {value:"linear",confidence:0.6};
+  return {value:"linear",confidence:0.5};
+}
+
+function scoreMathRole(text){
+  const ft=text.toLowerCase();
+
+  const theoremW=["theorem","lemma","corollary","proof","definition ","prove","conjecture","\\[E = 2V","counting rule"];
+  if(theoremW.filter(w=>ft.includes(w)).length>=4) return {value:"theorem",confidence:0.9};
+
+  const structuralM=["constraint graph","laman","h¹","cohomology","p48","pythagorean48","counting rule","rigidity","csp"];
+  if(structuralM.filter(w=>ft.includes(w)).length>=4) return {value:"structural",confidence:0.85};
+
+  if(/[A-Z]\s*=\s*\d+[A-Z]\s*[-+*/]\s*\d+/.test(text)||
+     /E\s*=\s*2V\s*-\s*3/.test(text)||
+     /β/.test(text)) return {value:"embedded",confidence:0.75};
+
+  const poeticM=["gradients became richer","entropy and laughed","like poetry","math is a character","universe looked at entropy","math is the rigging","counting rule is the season"];
+  if(poeticM.filter(w=>ft.includes(w)).length>=2) return {value:"poetic",confidence:0.7};
+
+  const mathT=["equation","formula","gradient","entropy","vector","dimension","geometry","topology","symmetry","resonance","manifold"];
+  if(mathT.filter(w=>ft.includes(w)).length>=2) return {value:"poetic",confidence:0.6};
+
+  return {value:"absent",confidence:0.7};
+}
+
+function scoreParagraphLength(text){
+  const paras=getParagraphs(text);
+  if(!paras.length) return {value:"medium",confidence:0.3};
+  const lengths=paras.map(p=>p.split(/\s+/).length);
+  const avg=lengths.reduce((a,b)=>a+b,0)/lengths.length;
+
+  if(lengths.length>=4){
+    const std=Math.sqrt(lengths.reduce((s,l)=>s+(l-avg)**2,0)/lengths.length);
+    if(std/Math.max(avg,1)>0.6) return {value:"mixed",confidence:0.8};
+  }
+
+  if(avg<30) return {value:"short",confidence:0.8};
+  if(avg<70) return {value:"medium",confidence:0.7};
+  return {value:"long",confidence:0.7};
+}
+
+function scoreSentenceFragments(text){
+  const sentences=getSentences(text);
+  const lines=text.split('\n');
+  if(!sentences.length) return {value:"none",confidence:0.5};
+
+  let fragC=0;
+  let totalL=0;
+  for(const line of lines){
+    const l=line.trim();
+    if(!l||l.startsWith('#')||l.startsWith('>')||l.startsWith('---')) continue;
+    totalL++;
+    if(l.split(/\s+/).length<8&&l[0]>='a'&&l[0]<='z'&&!/[)\]'"]$/.test(l.trim())) fragC++;
+    if(l.includes(' — ')&&l.split(' — ').pop().split(/\s+/).length<10) fragC++;
+  }
+
+  const fragPat=(text.match(/\. [a-z][a-z\s]{0,40}\./g)||[]).length;
+  const ratio=totalL?fragC/totalL:0;
+
+  if(ratio>0.3||fragPat>totalL*0.15) return {value:"frequent",confidence:0.8};
+  if(ratio>0.15||fragPat>totalL*0.08) return {value:"moderate",confidence:0.7};
+  if(ratio>0.05||fragPat>0) return {value:"rare",confidence:0.6};
+  return {value:"none",confidence:0.7};
+}
+
+function scoreMetaphorDensity(text){
+  const ft=text.toLowerCase();
+  const markers=["like","as if","as though","is not","is a ","was a ","were a ","are a ","the same way","this is what","in the same","resonance","echo","mirror","reflect","the way ","like a ","like the ","like an "];
+  let count=0;
+  for(const m of markers){
+    const escaped=m.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+    count+=(ft.match(new RegExp(escaped,'g'))||[]).length;
+  }
+
+  const simile=(ft.match(/(?:like|as\s+if)\s+a\w+/g)||[]).length;
+  const words=ft.split(/\s+/).length;
+  const density=(count/Math.max(words,1))*100;
+
+  if(density>4) return {value:"dense",confidence:0.85};
+  if(density>2.5||simile>3) return {value:"woven",confidence:0.75};
+  if(density>1||simile>1) return {value:"occasional",confidence:0.7};
+  return {value:"literal",confidence:0.7};
+}
+
+function scoreParentheticalFrequency(text){
+  const parens=(text.match(/\([^)]*\)/g)||[]).length;
+  const emDash=(text.match(/ — /g)||[]).length;
+  const enDash=(text.match(/ – /g)||[]).length;
+  const brackets=(text.match(/\[[^\]]*\]/g)||[]).length;
+  const total=parens+emDash+enDash+brackets;
+  const words=text.split(/\s+/).length;
+  const density=(total/Math.max(words,1))*100;
+
+  if(density>5) return {value:"structural",confidence:0.85};
+  if(density>3) return {value:"frequent",confidence:0.8};
+  if(density>1.5) return {value:"moderate",confidence:0.7};
+  if(density>0.3) return {value:"rare",confidence:0.6};
+  return {value:"none",confidence:0.7};
+}
+
+function scoreClosingStrategy(text){
+  const paras=getParagraphs(text);
+  if(!paras.length) return {value:"summary",confidence:0.3};
+
+  const last=paras[paras.length-1];
+  const ft=text.toLowerCase();
+  const first=paras.length>1?paras[0]:"";
+
+  const fkw=new Set((first.toLowerCase().match(/\b\w{4,}\b/g)||[]));
+  const lkw=new Set((last.toLowerCase().match(/\b\w{4,}\b/g)||[]));
+  let overlap=0;
+  for(const w of fkw) if(lkw.has(w)) overlap++;
+  const retRatio=fkw.size?overlap/fkw.size:0;
+
+  if(retRatio>0.3) return {value:"return",confidence:0.8};
+
+  const imageP=["in the dark","in warm ocean","in space","light","stars","dawn","sun","horizon","murmuration","river","a good boat does that","a good vessel"];
+  const ic=imageP.filter(w=>last.toLowerCase().includes(w)).length;
+  if(ic>=2&&last.split(/\s+/).length>20) return {value:"image",confidence:0.75};
+
+  if(last.includes('?')&&last.length<300) return {value:"provocation",confidence:0.7};
+
+  const openM=["and so it goes","and so it went","begin","it begins","the story continues","to be continued","so here we are"];
+  if(openM.filter(w=>last.toLowerCase().includes(w)).length>=1) return {value:"open",confidence:0.75};
+
+  return {value:"summary",confidence:0.6};
+}
+
+// --- ANALYZE ---
+function analyzeText(text){
+  const scorers={
+    opening_strategy:scoreOpeningStrategy,
+    reader_relationship:scoreReaderRelationship,
+    negative_space_use:scoreNegativeSpaceUse,
+    time_relationship:scoreTimeRelationship,
+    math_role:scoreMathRole,
+    paragraph_length:scoreParagraphLength,
+    sentence_fragments:scoreSentenceFragments,
+    metaphor_density:scoreMetaphorDensity,
+    parenthetical_frequency:scoreParentheticalFrequency,
+    closing_strategy:scoreClosingStrategy
+  };
+
+  const results={};
+  for(const [name,scorer] of Object.entries(scorers)){
+    const r=scorer(text);
+    results[name]={value:r.value,confidence:r.confidence,scale:ANCHOR_SCALES[name]};
+  }
+  return results;
+}
+
+function signatureFromResults(results){
+  const parts=[];
+  for(const name of ANCHOR_NAMES){
+    const value=results[name].value;
+    parts.push(SIGNATURE_CODES[name][value]||'?');
+  }
+  return parts.join('-');
+}
+
+function hammingDistance(sig1,sig2){
+  const p1=sig1.split('-'),p2=sig2.split('-');
+  if(p1.length!==p2.length) return -1;
+  return p1.reduce((d,c,i)=>d+(c!==p2[i]?1:0),0);
+}
+
+function getModelName(entry){
+  const m=entry.model;
+  // Normalize for lookup: strip " (Oracle1)", " (Oracle1)" etc.
+  const base=m.replace(/ \(.*\)/,'').replace(/\/.*/,'').trim();
+  // Try exact match, then base match
+  for(const key of Object.keys(RECOMMENDATIONS)){
+    if(m.includes(key)) return key;
+    if(base===key) return key;
+  }
+  return null;
+}
+
+function analyze(){
+  const text=document.getElementById('inputText').value.trim();
+  if(!text) return;
+
+  document.getElementById('analyzeBtn').disabled=true;
+  document.getElementById('analyzeBtn').textContent='Analyzing...';
+
+  // Run analysis (synchronous, fast)
+  setTimeout(()=>{
+    const results=analyzeText(text);
+    const sig=signatureFromResults(results);
+
+    // Show results section
+    document.getElementById('results').style.display='block';
+    document.getElementById('emptyState').style.display='none';
+    document.getElementById('sigDisplay').textContent=sig;
+
+    // Dimension grid
+    const dimGrid=document.getElementById('dimGrid');
+    dimGrid.innerHTML='';
+    for(const name of ANCHOR_NAMES){
+      const r=results[name];
+      const code=SIGNATURE_CODES[name][r.value]||'?';
+      const dim=document.createElement('div');
+      dim.className='dim-item';
+
+      let confClass='conf-low';
+      if(r.confidence>=0.7) confClass='conf-high';
+      else if(r.confidence>=0.5) confClass='conf-med';
+
+      dim.innerHTML=`
+        <div class="dim-name">${ANCHOR_LABELS[name]}</div>
+        <div class="dim-row">
+          <span class="dim-code">${code}</span>
+          <span class="dim-value">${r.value}</span>
+          <span class="dim-conf ${confClass}">${(r.confidence*100).toFixed(0)}%</span>
+        </div>
+      `;
+      dimGrid.appendChild(dim);
+    }
+
+    // Model matches
+    const matches=[];
+    for(const entry of SIGNATURES){
+      const dist=hammingDistance(sig,entry.sig);
+      matches.push({...entry,distance:dist});
+    }
+    matches.sort((a,b)=>a.distance-b.distance);
+
+    const matchList=document.getElementById('matchList');
+    matchList.innerHTML='';
+    for(let i=0;i<matches.length;i++){
+      const m=matches[i];
+      const row=document.createElement('div');
+      row.className='match-row';
+
+      let distClass='dist-far';
+      if(m.distance<=2) distClass='dist-good';
+      else if(m.distance<=4) distClass='dist-ok';
+
+      if(i===0){
+        row.style.borderColor='var(--accent)';
+        row.style.background='#0d1a2b';
+      }
+
+      row.innerHTML=`
+        <span class="match-rank">#${i+1}</span>
+        <span class="match-model">${m.model} <span style="color:var(--text-dim);font-size:0.75rem">(${m.text})</span></span>
+        <span class="match-sig">${m.sig}</span>
+        <span class="match-dist ${distClass}">${m.distance}/10</span>
+      `;
+      matchList.appendChild(row);
+    }
+
+    // Recommendation
+    const recArea=document.getElementById('recArea');
+    recArea.innerHTML='';
+
+    const best=matches[0];
+    const modelKey=getModelName(best);
+
+    if(modelKey){
+      const rec=RECOMMENDATIONS[modelKey];
+      let warningHtml='';
+      if(rec.warning){
+        warningHtml=`<div class="warning">⚠️ ${rec.warning}</div>`;
+      }
+
+      const recCard=document.createElement('div');
+      recCard.className='rec-card';
+      recCard.innerHTML=`
+        <h3>🏆 Best Match: ${best.model} (distance ${best.distance}/10)</h3>
+        <div class="rec-row"><span class="rec-label">Recommended temp:</span><span class="rec-value">${rec.temp}</span></div>
+        <div class="rec-row"><span class="rec-label">Prompt prefix:</span><span class="rec-value">${rec.prefix}</span></div>
+        ${warningHtml}
+      `;
+      recArea.appendChild(recCard);
+
+      // Show next best matches
+      if(matches.length>1){
+        const nextHtml=document.createElement('div');
+        nextHtml.style.marginTop='12px';
+        nextHtml.innerHTML='<h3 style="font-size:0.9rem;color:var(--text-dim);margin-bottom:8px">Also close:</h3>';
+        const ul=document.createElement('ul');
+        ul.style.cssText='list-style:none;padding:0';
+        for(let i=1;i<Math.min(4,matches.length);i++){
+          const m=matches[i];
+          if(m.distance<=6){
+            const li=document.createElement('li');
+            li.style.cssText='padding:4px 0;font-size:0.85rem;color:var(--text-dim)';
+            const mk=getModelName(m);
+            li.textContent=`${m.model} (dist ${m.distance}/10)`+(mk?` — temp ${RECOMMENDATIONS[mk].temp}`:'');
+            ul.appendChild(li);
+          }
+        }
+        nextHtml.appendChild(ul);
+        recArea.appendChild(nextHtml);
+      }
+    } else {
+      recArea.innerHTML=`<div class="rec-card"><h3>🏆 Best Match: ${best.model} (distance ${best.distance}/10)</h3><p style="font-size:0.85rem;color:var(--text-dim)">No specific recommendation data for this model. Apply general best practices.</p></div>`;
+    }
+
+    document.getElementById('analyzeBtn').disabled=false;
+    document.getElementById('analyzeBtn').textContent='Analyze Signature';
+
+    // Scroll to results
+    document.getElementById('results').scrollIntoView({behavior:'smooth',block:'start'});
+  }, 100);
+}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  document.getElementById('analyzeBtn').addEventListener('click',analyze);
+  document.getElementById('inputText').addEventListener('keydown',e=>{
+    if(e.ctrlKey&&e.key==='Enter') analyze();
+  });
+});
+</script>
+</body>
+</html>
