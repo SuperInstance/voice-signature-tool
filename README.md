@@ -92,3 +92,5 @@ No build, no config, no server.
 ## License
 
 MIT
+## Data Source
+Voice signatures and model templates sourced from [SuperInstance/casting-call](https://github.com/SuperInstance/casting-call) — the fleet's federated model evaluation database.
