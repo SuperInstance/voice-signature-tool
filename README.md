@@ -1,5 +1,15 @@
 # Voice Signature Analyzer 🔮
 
+
+## Meta
+
+**Domain:** other
+**Depends on:** —
+**Depended by:** —
+**Implements:** Zero-dependency voice signature analyzer — analyze any text against 10 anchor po...
+**Related:** —
+
+
 A zero-dependency, single-file web tool that analyzes any text against 10 anchor points to produce a model voice signature — and recommends which AI model matches that voice.
 
 ## How to Use
